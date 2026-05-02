@@ -24,7 +24,11 @@ body {
   height: 100vh;
   display: grid;
   place-items: center;
-  background: #071018;
+  background:
+    repeating-linear-gradient(0deg, rgba(110, 231, 255, 0.10) 0 3px, transparent 3px 34px),
+    repeating-linear-gradient(90deg, rgba(155, 92, 255, 0.08) 0 4px, transparent 4px 42px),
+    linear-gradient(180deg, #18345a 0%, #0b1b33 68%, #071018 100%);
+  overflow: hidden;
 }
 
 canvas {

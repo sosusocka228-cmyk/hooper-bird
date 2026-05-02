@@ -78,9 +78,9 @@ const skinDefinitions = [
 
 const skinButtons = skinDefinitions.map((skin, index) => ({
   ...skin,
-  x: 76 + (index % 5) * 146,
+  x: 82 + (index % 5) * 140,
   y: 344 + Math.floor(index / 5) * 34,
-  w: 132,
+  w: 126,
   h: 27,
 }));
 
@@ -114,6 +114,7 @@ const deathMenuButtons = [
 ];
 
 const nameButton = { x: W / 2 - 120, y: 158, w: 240, h: 32 };
+const shopActionButton = { x: 520, y: 258, w: 168, h: 42 };
 
 const pauseButton = { x: W - 76, y: 24, w: 52, h: 52 };
 const pauseMenuButtons = [
@@ -638,6 +639,11 @@ function buyOrSelectSkin(skin) {
   }
 }
 
+function selectPreviewSkin(skin) {
+  state.previewSkin = skin.id;
+  beep(520, 0.04, "square", 0.025);
+}
+
 function getSelectedCrashEffect() {
   return crashEffectDefinitions.find((effect) => effect.id === state.selectedCrashEffect) || crashEffectDefinitions[0];
 }
@@ -667,6 +673,11 @@ function buyOrSelectCrashEffect(effect) {
   } else {
     beep(140, 0.08, "sawtooth", 0.035);
   }
+}
+
+function selectPreviewCrashEffect(effect) {
+  state.previewCrashEffect = effect.id;
+  beep(520, 0.04, "square", 0.025);
 }
 
 function addParticle(x, y, vx, vy, life, color, size = 4) {
@@ -1528,61 +1539,113 @@ function drawSkinsMenu() {
   drawBeveledRect(52, 126, 760, 368, "#142236", 32, -50);
   drawText("PREVIEW", 238, 164, 18, "#8fb3c8", "center", false);
   drawText("CHOOSE SKIN", W / 2, 326, 18, "#6ee7ff", "center", false);
+  drawShopLegend(548, 300);
 
   const preview = getPreviewSkin();
   const owned = state.ownedSkins.has(preview.id);
+  const selected = state.selectedSkin === preview.id;
+  const affordable = state.coins >= preview.price;
+  const action = getPreviewAction(selected, owned, affordable, preview.price);
   drawText(preview.name, 238, 196, 27, "#f7fbff", "center", false);
   drawText(owned ? "OWNED" : `${preview.price} COINS`, 238, 234, 20, owned ? "#7cff6b" : "#ffd166", "center", false);
-  drawText(owned ? "CLICK BELOW TO USE" : "CLICK BELOW TO BUY", 238, 266, 14, "#8fb3c8", "center", false);
+  drawText("PICK BELOW, THEN PRESS BUTTON", 238, 266, 14, "#8fb3c8", "center", false);
   drawSkinAvatar(preview, 604, 218, 1.7, Math.sin(state.frame * 0.03) * 0.08);
+  drawShopActionButton(action);
 
   for (const button of skinButtons) {
     const owned = state.ownedSkins.has(button.id);
     const selected = state.selectedSkin === button.id;
     const affordable = state.coins >= button.price;
-    drawBeveledRect(button.x, button.y, button.w, button.h, selected ? "#6b5a23" : owned ? "#226b42" : affordable ? "#6f5c22" : "#68253a", 24, -42);
-    ctx.fillStyle = selected ? "#ffd166" : owned ? "#7cff6b" : affordable ? "#ffd166" : "#ff3864";
-    ctx.fillRect(button.x + 5, button.y + 5, 18, button.h - 10);
-    ctx.fillStyle = button.body;
-    ctx.fillRect(button.x + 9, button.y + 9, 10, 9);
-    ctx.fillStyle = "#f7fbff";
-    ctx.font = '900 10px "Courier New", Consolas, monospace';
+    const status = getShopStatus(selected, owned, affordable, button.price);
+    drawShopItem(button, status, button.body, button.name);
+  }
+}
+
+function getShopStatus(selected, owned, affordable, price) {
+  if (selected) return { label: "EQUIPPED", short: "EQP", color: "#ffd166", bg: "#6b5a23" };
+  if (owned) return { label: "OWNED", short: "OWN", color: "#7cff6b", bg: "#226b42" };
+  if (affordable) return { label: `BUY ${price}`, short: "BUY", color: "#ffd166", bg: "#6f5c22" };
+  return { label: `LOCK ${price}`, short: "LOCK", color: "#ff3864", bg: "#68253a" };
+}
+
+function getPreviewAction(selected, owned, affordable, price) {
+  if (selected) return { label: "EQUIPPED", color: "#6b5a23", stripe: "#ffd166", enabled: false };
+  if (owned) return { label: "EQUIP", color: "#226b42", stripe: "#7cff6b", enabled: true };
+  if (affordable) return { label: `BUY ${price}`, color: "#6f5c22", stripe: "#ffd166", enabled: true };
+  return { label: `LOCKED ${price}`, color: "#68253a", stripe: "#ff3864", enabled: false };
+}
+
+function drawShopActionButton(action) {
+  const alpha = action.enabled ? 1 : 0.72;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  drawBeveledRect(shopActionButton.x, shopActionButton.y, shopActionButton.w, shopActionButton.h, action.color, 28, -44);
+  ctx.fillStyle = action.stripe;
+  ctx.fillRect(shopActionButton.x + 5, shopActionButton.y + 5, shopActionButton.w - 10, 6);
+  drawText(action.label, shopActionButton.x + shopActionButton.w / 2, shopActionButton.y + 26, 18, "#f7fbff", "center", false);
+  ctx.restore();
+}
+
+function drawShopItem(button, status, swatchColor, name) {
+  drawBeveledRect(button.x, button.y, button.w, button.h, status.bg, 24, -42);
+  ctx.strokeStyle = status.color;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(button.x + 2, button.y + 2, button.w - 4, button.h - 4);
+  ctx.fillStyle = status.color;
+  ctx.fillRect(button.x + 5, button.y + 5, 18, button.h - 10);
+  ctx.fillStyle = swatchColor;
+  ctx.fillRect(button.x + 9, button.y + 9, 10, 9);
+  ctx.fillStyle = "#f7fbff";
+  ctx.font = '900 10px "Courier New", Consolas, monospace';
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(name, button.x + 29, button.y + 10);
+  ctx.fillStyle = status.color;
+  ctx.textAlign = "right";
+  ctx.fillText(status.short, button.x + button.w - 8, button.y + 21);
+}
+
+function drawShopLegend(x, y) {
+  const items = [
+    { label: "EQUIPPED", color: "#ffd166" },
+    { label: "OWNED", color: "#7cff6b" },
+    { label: "CAN BUY", color: "#ffd166" },
+    { label: "LOCKED", color: "#ff3864" },
+  ];
+  ctx.font = '900 10px "Courier New", Consolas, monospace';
+  ctx.textBaseline = "middle";
+  for (let i = 0; i < items.length; i += 1) {
+    const item = items[i];
+    const lx = x + i * 84;
+    ctx.fillStyle = item.color;
+    ctx.fillRect(lx, y - 5, 10, 10);
+    ctx.fillStyle = "#8fb3c8";
     ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    const status = selected ? "USE" : owned ? "OWN" : `${button.price}M`;
-    ctx.fillText(`${button.name}`, button.x + 29, button.y + 10);
-    ctx.textAlign = "right";
-    ctx.fillText(status, button.x + button.w - 8, button.y + 21);
+    ctx.fillText(item.label, lx + 14, y);
   }
 }
 
 function drawCrashShop() {
   const preview = getPreviewCrashEffect();
   const owned = state.ownedCrashEffects.has(preview.id);
+  const selected = state.selectedCrashEffect === preview.id;
+  const affordable = state.coins >= preview.price;
+  const action = getPreviewAction(selected, owned, affordable, preview.price);
   drawText("PREVIEW", 238, 164, 18, "#8fb3c8", "center", false);
   drawText("CHOOSE CRASH", W / 2, 326, 18, "#6ee7ff", "center", false);
+  drawShopLegend(548, 300);
   drawText(preview.name, 238, 196, 27, "#f7fbff", "center", false);
   drawText(owned ? "OWNED" : `${preview.price} COINS`, 238, 234, 20, owned ? "#7cff6b" : "#ffd166", "center", false);
-  drawText(owned ? "CLICK BELOW TO USE" : "CLICK BELOW TO BUY", 238, 266, 14, "#8fb3c8", "center", false);
+  drawText("PICK BELOW, THEN PRESS BUTTON", 238, 266, 14, "#8fb3c8", "center", false);
   drawCrashPreview(preview, 604, 218, 0.82);
+  drawShopActionButton(action);
 
   for (const button of crashButtons) {
     const owned = state.ownedCrashEffects.has(button.id);
     const selected = state.selectedCrashEffect === button.id;
     const affordable = state.coins >= button.price;
-    drawBeveledRect(button.x, button.y, button.w, button.h, selected ? "#6b5a23" : owned ? "#226b42" : affordable ? "#6f5c22" : "#68253a", 24, -42);
-    ctx.fillStyle = selected ? "#ffd166" : owned ? "#7cff6b" : affordable ? "#ffd166" : "#ff3864";
-    ctx.fillRect(button.x + 4, button.y + 4, 22, button.h - 8);
-    ctx.fillStyle = button.colors[0];
-    ctx.fillRect(button.x + 10, button.y + 9, 10, 10);
-    ctx.fillStyle = "#f7fbff";
-    ctx.font = '900 10px "Courier New", Consolas, monospace';
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    const status = selected ? "USE" : owned ? "OWN" : `${button.price}M`;
-    ctx.fillText(button.name, button.x + 33, button.y + 12);
-    ctx.textAlign = "right";
-    ctx.fillText(status, button.x + button.w - 8, button.y + 24);
+    const status = getShopStatus(selected, owned, affordable, button.price);
+    drawShopItem(button, status, button.colors[0], button.name);
   }
 }
 
@@ -1792,16 +1855,24 @@ canvas.addEventListener("pointerdown", (event) => {
           return;
         }
         if (state.shopTab === "skins") {
+          if (x >= shopActionButton.x && x <= shopActionButton.x + shopActionButton.w && y >= shopActionButton.y && y <= shopActionButton.y + shopActionButton.h) {
+            buyOrSelectSkin(getPreviewSkin());
+            return;
+          }
           for (const button of skinButtons) {
             if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h) {
-              buyOrSelectSkin(button);
+              selectPreviewSkin(button);
               return;
             }
           }
         } else {
+          if (x >= shopActionButton.x && x <= shopActionButton.x + shopActionButton.w && y >= shopActionButton.y && y <= shopActionButton.y + shopActionButton.h) {
+            buyOrSelectCrashEffect(getPreviewCrashEffect());
+            return;
+          }
           for (const button of crashButtons) {
             if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h) {
-              buyOrSelectCrashEffect(button);
+              selectPreviewCrashEffect(button);
               return;
             }
           }
