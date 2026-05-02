@@ -1,0 +1,9 @@
+{
+  "name": "hooper-bird",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ./web_server.ps1",
+    "start": "npm run dev"
+  }
+}
